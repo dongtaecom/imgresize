@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>초고속 이미지 일괄 리사이저 (Batch Image Resizer)</title>
+  <meta name="description" content="서버 전송 없이 브라우저 메모리 내에서 안전하고 빠르게 동작하는 이미지 일괄 리사이징 웹 앱">
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- JSZip for client-side zip creation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+
+  <header>
+    <div class="logo-container">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+        </svg>
+      </div>
+      <h1>Batch Image Resizer</h1>
+    </div>
+    <p class="subtitle">모든 이미지 처리가 사용자의 브라우저 메모리 내부에서만 수행됩니다</p>
+    <div class="privacy-badge">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+      </svg>
+      100% 로컬 보안 연산 (서버 전송 없음)
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- Sidebar Controls -->
+    <aside class="control-sidebar glass-panel">
+      <h2 class="section-title">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        리사이즈 설정
+      </h2>
+
+      <!-- Resize Mode Selector -->
+      <div class="form-group">
+        <label>리사이즈 기준 선택</label>
+        <div class="mode-options">
+          <div class="mode-card">
+            <input type="radio" id="mode-long" name="resizeMode" value="long" checked>
+            <label class="mode-label" for="mode-long">
+              <span>1. 긴 축 기준</span>
+              <small>Longer Side</small>
+            </label>
+          </div>
+          <div class="mode-card">
+            <input type="radio" id="mode-short" name="resizeMode" value="short">
+            <label class="mode-label" for="mode-short">
+              <span>2. 짧은 축 기준</span>
+              <small>Shorter Side</small>
+            </label>
+          </div>
+          <div class="mode-card">
+            <input type="radio" id="mode-width" name="resizeMode" value="width">
+            <label class="mode-label" for="mode-width">
+              <span>3. X축 기준 (너비)</span>
+              <small>Width</small>
+            </label>
+          </div>
+          <div class="mode-card">
+            <input type="radio" id="mode-height" name="resizeMode" value="height">
+            <label class="mode-label" for="mode-height">
+              <span>4. Y축 기준 (높이)</span>
+              <small>Height</small>
+            </label>
+          </div>
+          <div class="mode-card">
+            <input type="radio" id="mode-percent" name="resizeMode" value="percent">
+            <label class="mode-label" for="mode-percent">
+              <span>5. 퍼센트 비율 기준</span>
+              <small>Percentage</small>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dimension / Percentage Target Value Input -->
+      <div class="form-group" id="dimension-group">
+        <label id="target-value-label" for="target-value">목표 크기 (px)</label>
+        <div class="input-with-unit">
+          <input type="number" id="target-value" value="1080" min="1" max="10000" step="1">
+          <span class="unit-tag" id="unit-tag-display">px</span>
+        </div>
+      </div>
+
+      <!-- Output Format -->
+      <div class="form-group">
+        <label for="output-format">출력 포맷</label>
+        <select id="output-format">
+          <option value="original">원본 포맷 유지 (Original)</option>
+          <option value="image/jpeg">JPEG (.jpg)</option>
+          <option value="image/png">PNG (.png)</option>
+          <option value="image/webp">WebP (.webp)</option>
+        </select>
+      </div>
+
+      <!-- Quality Slider (JPEG / WebP) -->
+      <div class="form-group" id="quality-group">
+        <label for="output-quality">이미지 품질 (Quality)</label>
+        <div class="range-container">
+          <input type="range" id="output-quality" min="10" max="100" value="90">
+          <span class="range-val" id="quality-val-display">90%</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <section class="content-area">
+      <!-- File Dropzone -->
+      <div class="glass-panel dropzone" id="dropzone">
+        <input type="file" id="file-input" multiple accept="image/*" style="display: none;">
+        <div class="drop-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </div>
+        <div class="drop-title">이미지 파일들을 여기에 드래그 & 드롭하세요</div>
+        <div class="drop-sub">또는 클릭하여 내 PC에서 여러 파일 선택 (JPG, PNG, WebP, GIF 등)</div>
+      </div>
+
+      <!-- Processing Toolbar -->
+      <div class="glass-panel toolbar" id="toolbar" style="display: none;">
+        <div class="file-stats">
+          총 <strong id="total-count">0</strong>개의 이미지가 선택됨
+        </div>
+        <div class="toolbar-actions">
+          <button class="btn btn-secondary" id="clear-all-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            전체 삭제
+          </button>
+          <button class="btn btn-success" id="download-zip-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            일괄 다운로드 (.zip)
+          </button>
+        </div>
+      </div>
+
+      <!-- Preview Grid -->
+      <div class="preview-grid" id="preview-grid">
+        <div class="glass-panel empty-state" id="empty-state">
+          업로드된 이미지가 없습니다. 상단 영역에 이미지를 끌어다 놓아주세요.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
